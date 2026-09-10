@@ -6,62 +6,81 @@
     <title>Consulta de Autorizados</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-900 p-8 text-slate-200 relative min-h-screen">
-    <div class="max-w-7xl mx-auto bg-slate-800 p-6 rounded-xl shadow-2xl border border-slate-700">
+<body class="bg-slate-900 p-4 md:p-8 text-slate-200 relative min-h-screen">
+    <div class="max-w-7xl mx-auto bg-slate-800 p-4 md:p-6 rounded-xl shadow-2xl border border-slate-700">
         
-        <h1 class="text-3xl font-bold mb-6 text-blue-400 text-center md:text-left tracking-wide">
+        <h1 class="text-2xl md:text-3xl font-bold mb-6 text-blue-400 text-center md:text-left tracking-wide">
             Sistema de Autorizações
         </h1>
 
-        <!-- Barra de Controles -->
-        <div class="bg-slate-900/50 border border-slate-700 p-4 rounded-lg mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+        <!-- Barra de Controles Principal -->
+        <div class="bg-slate-900/50 border border-slate-700 p-4 rounded-lg flex flex-col gap-6">
             
-            <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            <!-- Botões de Ação -->
+            <div class="flex flex-wrap items-center justify-center md:justify-start gap-3 w-full">
                 <input type="file" id="planilha" accept=".xlsx" class="hidden">
-                <button onclick="document.getElementById('planilha').click()" class="bg-blue-600 text-white px-5 py-2.5 rounded hover:bg-blue-500 transition-colors font-medium text-sm flex items-center justify-center min-w-[160px] shadow-lg shadow-blue-900/50">
+                <button onclick="document.getElementById('planilha').click()" class="bg-blue-600 text-white px-5 py-3 rounded hover:bg-blue-500 transition-colors font-medium text-sm flex-1 md:flex-none shadow-lg shadow-blue-900/50">
                     Importar Planilha
                 </button>
-                <button onclick="abrirModal()" class="bg-emerald-600 text-white px-5 py-2.5 rounded hover:bg-emerald-500 transition-colors font-medium text-sm flex items-center justify-center min-w-[160px] shadow-lg shadow-emerald-900/50">
-                    + Cadastro Manual
+                <button onclick="abrirModalManual()" class="bg-emerald-600 text-white px-5 py-3 rounded hover:bg-emerald-500 transition-colors font-medium text-sm flex-1 md:flex-none shadow-lg shadow-emerald-900/50">
+                    + Cadastro
+                </button>
+                <button onclick="verTodos()" class="bg-purple-600 text-white px-5 py-3 rounded hover:bg-purple-500 transition-colors font-medium text-sm flex-1 md:flex-none shadow-lg shadow-purple-900/50">
+                    Ver Todos
                 </button>
             </div>
 
+            <hr class="border-slate-700">
+
             <!-- Campo de Pesquisa -->
-            <div class="w-full md:w-96 relative">
-                <input type="text" id="campo-pesquisa" placeholder="Pesquisar nome ou empresa..." class="bg-slate-800 border border-slate-600 text-slate-200 placeholder-slate-400 p-2.5 rounded w-full text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors">
+            <div class="w-full flex flex-col md:flex-row gap-3">
+                <input type="text" id="campo-pesquisa" placeholder="Pesquisar nome ou empresa..." class="bg-slate-800 border border-slate-600 text-slate-200 placeholder-slate-400 p-3 rounded w-full text-base md:text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors">
+                <button onclick="pesquisar()" class="bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-500 transition-colors font-bold text-base md:text-sm shadow-lg shadow-blue-900/50 w-full md:w-auto">
+                    Buscar
+                </button>
             </div>
             
-        </div>
-
-        <!-- Tabela -->
-        <div class="overflow-x-auto border border-slate-700 rounded-lg bg-slate-800 shadow-inner">
-            <table class="w-full text-center border-collapse">
-                <thead>
-                    <tr class="bg-slate-700 text-sm uppercase text-slate-300 font-semibold tracking-wider">
-                        <th class="p-4 border-b border-slate-600">Status</th>
-                        <th class="p-4 border-b border-slate-600 whitespace-nowrap">Data Mensagem</th>
-                        <th class="p-4 border-b border-slate-600 text-left">Nome</th>
-                        <th class="p-4 border-b border-slate-600 whitespace-nowrap">Início</th>
-                        <th class="p-4 border-b border-slate-600 whitespace-nowrap">Fim</th>
-                        <th class="p-4 border-b border-slate-600 text-left">Empresa</th>
-                        <th class="p-4 border-b border-slate-600 text-left">Local</th>
-                        <th class="p-4 border-b border-slate-600 whitespace-nowrap">Formato</th>
-                    </tr>
-                </thead>
-                <tbody id="tabela-corpo" class="text-sm divide-y divide-slate-700">
-                    <!-- Javascript renderiza os dados aqui -->
-                </tbody>
-            </table>
         </div>
     </div>
 
-    <!-- Modal Pop-up (Tema Escuro) -->
-    <div id="modal-manual" class="fixed inset-0 bg-black/70 hidden flex justify-center items-center z-50 backdrop-blur-sm">
-        <div class="bg-slate-800 border border-slate-600 p-6 rounded-xl shadow-2xl w-full max-w-md">
+    <!-- Modal Pop-up: Tabela de Resultados -->
+    <div id="modal-tabela" class="fixed inset-0 bg-black/80 hidden flex justify-center items-center z-40 backdrop-blur-sm p-2 md:p-4">
+        <div class="bg-slate-800 border border-slate-600 p-4 md:p-6 rounded-xl shadow-2xl w-full max-w-7xl max-h-[95vh] flex flex-col">
+            
+            <div class="flex justify-between items-center mb-4">
+                <h2 id="titulo-modal-tabela" class="text-xl md:text-2xl font-bold text-slate-100">Resultados</h2>
+                <button onclick="fecharModalTabela()" class="text-slate-400 hover:text-red-400 transition-colors font-bold text-3xl leading-none">&times;</button>
+            </div>
+            
+            <div class="overflow-x-auto overflow-y-auto border border-slate-700 rounded-lg bg-slate-900 shadow-inner flex-1">
+                <table class="w-full text-center border-collapse min-w-[800px]">
+                    <thead class="sticky top-0 bg-slate-700 shadow-md">
+                        <tr class="text-sm uppercase text-slate-300 font-semibold tracking-wider">
+                            <th class="p-4 border-b border-slate-600">Status</th>
+                            <th class="p-4 border-b border-slate-600 whitespace-nowrap">Data Mensagem</th>
+                            <th class="p-4 border-b border-slate-600 text-left">Nome</th>
+                            <th class="p-4 border-b border-slate-600 whitespace-nowrap">Início</th>
+                            <th class="p-4 border-b border-slate-600 whitespace-nowrap">Fim</th>
+                            <th class="p-4 border-b border-slate-600 text-left">Empresa</th>
+                            <th class="p-4 border-b border-slate-600 text-left">Local</th>
+                            <th class="p-4 border-b border-slate-600 whitespace-nowrap">Formato</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabela-corpo" class="text-sm divide-y divide-slate-700">
+                        <!-- Javascript renderiza os dados aqui -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Pop-up: Cadastro Manual -->
+    <div id="modal-manual" class="fixed inset-0 bg-black/80 hidden flex justify-center items-center z-50 backdrop-blur-sm p-2">
+        <div class="bg-slate-800 border border-slate-600 p-6 rounded-xl shadow-2xl w-full max-w-md max-h-[95vh] overflow-y-auto">
             
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold text-slate-100">Novo Registro</h2>
-                <button onclick="fecharModal()" class="text-slate-400 hover:text-red-400 transition-colors font-bold text-2xl">&times;</button>
+                <button onclick="fecharModalManual()" class="text-slate-400 hover:text-red-400 transition-colors font-bold text-3xl leading-none">&times;</button>
             </div>
             
             <form id="form-manual" class="flex flex-col gap-4 text-left">
@@ -102,8 +121,8 @@
                 </div>
                 
                 <div class="flex justify-end gap-3 mt-4">
-                    <button type="button" onclick="fecharModal()" class="px-5 py-2.5 bg-slate-700 border border-slate-600 text-slate-300 rounded hover:bg-slate-600 transition-colors font-medium">Cancelar</button>
-                    <button type="submit" class="px-5 py-2.5 bg-blue-600 text-white rounded hover:bg-blue-500 transition-colors font-medium shadow-lg shadow-blue-900/50">Salvar Registro</button>
+                    <button type="button" onclick="fecharModalManual()" class="px-5 py-3 bg-slate-700 border border-slate-600 text-slate-300 rounded hover:bg-slate-600 transition-colors font-medium">Cancelar</button>
+                    <button type="submit" class="px-5 py-3 bg-emerald-600 text-white rounded hover:bg-emerald-500 transition-colors font-medium shadow-lg shadow-emerald-900/50">Salvar Registro</button>
                 </div>
             </form>
         </div>
@@ -111,10 +130,17 @@
 
     <script>
         let todosRegistros = [];
-        const modal = document.getElementById('modal-manual');
+        const modalManual = document.getElementById('modal-manual');
+        const modalTabela = document.getElementById('modal-tabela');
         
-        function abrirModal() { modal.classList.remove('hidden'); }
-        function fecharModal() { modal.classList.add('hidden'); document.getElementById('form-manual').reset(); }
+        function abrirModalManual() { modalManual.classList.remove('hidden'); }
+        function fecharModalManual() { modalManual.classList.add('hidden'); document.getElementById('form-manual').reset(); }
+        function fecharModalTabela() { modalTabela.classList.add('hidden'); }
+
+        // Remove acentos e caracteres especiais para pesquisa inteligente
+        function removerAcentos(str) {
+            return str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
+        }
 
         function isValido(dataStr, fimStr) {
             const dataBase = fimStr || dataStr;
@@ -166,27 +192,46 @@
                 });
                 const data = await res.json();
                 alert(data.mensagem || data.erro);
-                fecharModal();
+                fecharModalManual();
                 carregarDados();
             } catch (err) {
                 alert('Erro ao salvar.');
             }
         });
 
-        document.getElementById('campo-pesquisa').addEventListener('input', (e) => {
-            const termo = e.target.value.toLowerCase();
-            const filtrados = todosRegistros.filter(item => 
-                (item.nome && item.nome.toLowerCase().includes(termo)) ||
-                (item.empresa && item.empresa.toLowerCase().includes(termo))
-            );
-            renderizarTabela(filtrados);
+        // Pressionar Enter no campo de busca aciona o botão
+        document.getElementById('campo-pesquisa').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') pesquisar();
         });
+
+        function pesquisar() {
+            const inputVal = document.getElementById('campo-pesquisa').value.trim();
+            if (!inputVal) {
+                alert("Digite algo para pesquisar.");
+                return;
+            }
+
+            const termo = removerAcentos(inputVal.toLowerCase());
+            const filtrados = todosRegistros.filter(item => 
+                (item.nome && removerAcentos(item.nome.toLowerCase()).includes(termo)) ||
+                (item.empresa && removerAcentos(item.empresa.toLowerCase()).includes(termo))
+            );
+            
+            document.getElementById('titulo-modal-tabela').innerText = `Resultados para: "${inputVal}"`;
+            renderizarTabela(filtrados);
+            modalTabela.classList.remove('hidden');
+        }
+
+        function verTodos() {
+            document.getElementById('titulo-modal-tabela').innerText = "Todos os Autorizados";
+            renderizarTabela(todosRegistros);
+            modalTabela.classList.remove('hidden');
+        }
 
         async function carregarDados() {
             try {
                 const res = await fetch('/autorizacoes');
                 todosRegistros = await res.json();
-                renderizarTabela(todosRegistros);
             } catch (err) {
                 console.error('Erro:', err);
             }
@@ -195,6 +240,11 @@
         function renderizarTabela(dados) {
             const tbody = document.getElementById('tabela-corpo');
             tbody.innerHTML = ''; 
+
+            if(dados.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-slate-400">Nenhum registro encontrado.</td></tr>`;
+                return;
+            }
 
             dados.forEach(item => {
                 const tr = document.createElement('tr');
@@ -221,6 +271,8 @@
                 tbody.appendChild(tr);
             });
         }
+        
+        // Carrega os dados silenciosamente ao abrir a página
         carregarDados();
     </script>
 </body>
