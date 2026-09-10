@@ -92,7 +92,8 @@
                 <div class="flex gap-4">
                     <div class="w-1/2">
                         <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">DATA DA MENSAGEM</label>
-                        <input type="date" id="cad-data-mensagem" class="bg-slate-700 border border-slate-600 text-slate-200 p-2.5 rounded w-full focus:outline-none focus:border-blue-500" required>
+                        <!-- type="text" com inputmode="numeric" para acionar o teclado numérico do celular -->
+                        <input type="text" id="cad-data-mensagem" inputmode="numeric" maxlength="10" placeholder="DD/MM/AAAA" class="bg-slate-700 border border-slate-600 text-slate-200 p-2.5 rounded w-full focus:outline-none focus:border-blue-500" required>
                     </div>
                     <div class="w-1/2">
                         <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">FORMATO ENVIO</label>
@@ -109,11 +110,11 @@
                 <div class="flex gap-4">
                     <div class="w-1/2">
                         <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">INÍCIO</label>
-                        <input type="date" id="cad-inicio" class="bg-slate-700 border border-slate-600 text-slate-200 p-2.5 rounded w-full focus:outline-none focus:border-blue-500">
+                        <input type="text" id="cad-inicio" inputmode="numeric" maxlength="10" placeholder="DD/MM/AAAA" class="bg-slate-700 border border-slate-600 text-slate-200 p-2.5 rounded w-full focus:outline-none focus:border-blue-500">
                     </div>
                     <div class="w-1/2">
                         <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">FIM</label>
-                        <input type="date" id="cad-fim" class="bg-slate-700 border border-slate-600 text-slate-200 p-2.5 rounded w-full focus:outline-none focus:border-blue-500">
+                        <input type="text" id="cad-fim" inputmode="numeric" maxlength="10" placeholder="DD/MM/AAAA" class="bg-slate-700 border border-slate-600 text-slate-200 p-2.5 rounded w-full focus:outline-none focus:border-blue-500">
                     </div>
                 </div>
                 <div>
@@ -139,6 +140,24 @@
         const modalTabela = document.getElementById('modal-tabela');
         const campoPesquisa = document.getElementById('campo-pesquisa');
         const listaSugestoes = document.getElementById('lista-sugestoes');
+
+        // Máscara automática de data (DD/MM/AAAA) ao digitar com o teclado numérico
+        function aplicarMascaraData(e) {
+            let valor = e.target.value.replace(/\D/g, "");
+            if (valor.length > 8) valor = valor.slice(0, 8);
+            
+            if (valor.length > 4) {
+                valor = valor.replace(/^(\d{2})(\d{2})(\d{0,4})/, "$1/$2/$3");
+            } else if (valor.length > 2) {
+                valor = valor.replace(/^(\d{2})(\d{0,2})/, "$1/$2");
+            }
+            e.target.value = valor;
+        }
+
+        // Ativa a máscara nos três campos de data
+        ['cad-data-mensagem', 'cad-inicio', 'cad-fim'].forEach(id => {
+            document.getElementById(id).addEventListener('input', aplicarMascaraData);
+        });
         
         function abrirModalManual() { 
             document.getElementById('form-manual').reset();
@@ -161,32 +180,14 @@
             return str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
         }
 
-        // Converte DD/MM/AAAA para AAAA-MM-DD para preencher o input type="date"
-        function converterParaFormatoInput(dataStr) {
-            if (!dataStr) return '';
-            if (dataStr.includes('-') && dataStr.length === 10) return dataStr; // Já está no formato yyyy-mm-dd
-            const partes = String(dataStr).split('/');
-            if (partes.length === 3) {
-                let [dia, mes, ano] = partes;
-                if (ano.length === 2) ano = `20${ano}`;
-                return `${ano}-${mes}-${dia}`;
-            }
-            return '';
-        }
-
         function isValido(dataStr, fimStr) {
             const dataBase = fimStr || dataStr;
             if (!dataBase) return false;
-            const partes = String(dataBase).includes('-') ? dataBase.split('-') : String(dataBase).replace(/-/g, '/').split('/');
+            const partes = String(dataBase).replace(/-/g, '/').split('/');
             if (partes.length < 3) return false;
             
-            let ano, mes, dia;
-            if (String(dataBase).includes('-')) {
-                [ano, mes, dia] = partes;
-            } else {
-                [dia, mes, ano] = partes;
-                if (ano.length === 2) ano = `20${ano}`;
-            }
+            let [dia, mes, ano] = partes;
+            if (ano.length === 2) ano = `20${ano}`;
             
             const dataLimite = new Date(`${ano}-${mes}-${dia}T23:59:59`);
             return dataLimite >= new Date();
@@ -197,11 +198,11 @@
             if (!registro) return;
             
             document.getElementById('cad-id').value = registro.id;
-            document.getElementById('cad-data-mensagem').value = converterParaFormatoInput(registro.data_mensagem);
+            document.getElementById('cad-data-mensagem').value = registro.data_mensagem || '';
             document.getElementById('cad-formato').value = registro.formato_envio || 'Mensagem';
             document.getElementById('cad-nome').value = registro.nome || '';
-            document.getElementById('cad-inicio').value = converterParaFormatoInput(registro.inicio_autorizacao);
-            document.getElementById('cad-fim').value = converterParaFormatoInput(registro.fim_autorizacao);
+            document.getElementById('cad-inicio').value = registro.inicio_autorizacao || '';
+            document.getElementById('cad-fim').value = registro.fim_autorizacao || '';
             document.getElementById('cad-empresa').value = registro.empresa || '';
             document.getElementById('cad-local').value = registro.local_autorizacao || '';
             
