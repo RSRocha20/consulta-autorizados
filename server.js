@@ -11,7 +11,7 @@ app.use(express.json());
 app.use(express.static('public'));
 
 // SENHA DO ADMINISTRADOR (Você pode alterar para a senha que desejar)
-const SENHA_ADMIN = 'minhaSenhaSecreta123';
+const SENHA_ADMIN = 'bgkfrcamara26';
 
 app.post('/verificar-admin', (req, res) => {
     const { senha } = req.body;
