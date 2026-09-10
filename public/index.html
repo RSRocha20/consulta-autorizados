@@ -38,7 +38,7 @@
                     <input type="text" id="campo-pesquisa" autocomplete="off" placeholder="Pesquisar nome ou empresa..." class="bg-slate-800 border border-slate-600 text-slate-200 placeholder-slate-400 p-3 rounded w-full text-base md:text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors">
                     <ul id="lista-sugestoes" class="absolute z-10 w-full bg-slate-800 border border-slate-600 rounded-b mt-1 hidden max-h-60 overflow-y-auto shadow-xl"></ul>
                 </div>
-                <button onclick="pesquisar()" class="bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-500 transition-colors font-bold text-base md:text-sm shadow-lg shadow-blue-900/50 w-full md:w-auto shrink-0">
+                <button onclick="pesquisarBtn()" class="bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-500 transition-colors font-bold text-base md:text-sm shadow-lg shadow-blue-900/50 w-full md:w-auto shrink-0">
                     Buscar
                 </button>
             </div>
@@ -56,17 +56,18 @@
             </div>
             
             <div class="overflow-x-auto overflow-y-auto border border-slate-700 rounded-lg bg-slate-900 shadow-inner flex-1">
-                <table class="w-full text-center border-collapse min-w-[800px]">
+                <table class="w-full text-center border-collapse min-w-[900px]">
                     <thead class="sticky top-0 bg-slate-700 shadow-md">
                         <tr class="text-sm uppercase text-slate-300 font-semibold tracking-wider">
                             <th class="p-4 border-b border-slate-600">Status</th>
-                            <th class="p-4 border-b border-slate-600 whitespace-nowrap">Data Mensagem</th>
+                            <th class="p-4 border-b border-slate-600 whitespace-nowrap">Data Mens.</th>
                             <th class="p-4 border-b border-slate-600 text-left">Nome</th>
                             <th class="p-4 border-b border-slate-600 whitespace-nowrap">Início</th>
                             <th class="p-4 border-b border-slate-600 whitespace-nowrap">Fim</th>
                             <th class="p-4 border-b border-slate-600 text-left">Empresa</th>
                             <th class="p-4 border-b border-slate-600 text-left">Local</th>
                             <th class="p-4 border-b border-slate-600 whitespace-nowrap">Formato</th>
+                            <th class="p-4 border-b border-slate-600 whitespace-nowrap text-center">Ações</th>
                         </tr>
                     </thead>
                     <tbody id="tabela-corpo" class="text-sm divide-y divide-slate-700">
@@ -76,16 +77,19 @@
         </div>
     </div>
 
-    <!-- Modal Pop-up: Cadastro Manual -->
+    <!-- Modal Pop-up: Cadastro/Edição Manual -->
     <div id="modal-manual" class="fixed inset-0 bg-black/80 hidden flex justify-center items-center z-50 backdrop-blur-sm p-2">
         <div class="bg-slate-800 border border-slate-600 p-6 rounded-xl shadow-2xl w-full max-w-md max-h-[95vh] overflow-y-auto">
             
             <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-slate-100">Novo Registro</h2>
+                <h2 id="titulo-modal-manual" class="text-2xl font-bold text-slate-100">Novo Registro</h2>
                 <button onclick="fecharModalManual()" class="text-slate-400 hover:text-red-400 transition-colors font-bold text-3xl leading-none">&times;</button>
             </div>
             
             <form id="form-manual" class="flex flex-col gap-4 text-left">
+                <!-- Campo Oculto para ID (Usado na edição) -->
+                <input type="hidden" id="cad-id">
+
                 <div class="flex gap-4">
                     <div class="w-1/2">
                         <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">DATA DA MENSAGEM</label>
@@ -137,10 +141,18 @@
         const campoPesquisa = document.getElementById('campo-pesquisa');
         const listaSugestoes = document.getElementById('lista-sugestoes');
         
-        function abrirModalManual() { modalManual.classList.remove('hidden'); }
-        function fecharModalManual() { modalManual.classList.add('hidden'); document.getElementById('form-manual').reset(); }
+        function abrirModalManual() { 
+            document.getElementById('form-manual').reset();
+            document.getElementById('cad-id').value = '';
+            document.getElementById('titulo-modal-manual').innerText = "Novo Registro";
+            modalManual.classList.remove('hidden'); 
+        }
         
-        // A função agora fecha a tabela e limpa a barra de pesquisa
+        function fecharModalManual() { 
+            modalManual.classList.add('hidden'); 
+            document.getElementById('form-manual').reset(); 
+        }
+        
         function fecharModalTabela() { 
             modalTabela.classList.add('hidden'); 
             campoPesquisa.value = ''; 
@@ -163,6 +175,40 @@
             return dataLimite >= new Date();
         }
 
+        // Função para preencher e abrir modal de edição
+        function editarRegistro(id) {
+            const registro = todosRegistros.find(r => r.id == id);
+            if (!registro) return;
+            
+            document.getElementById('cad-id').value = registro.id;
+            document.getElementById('cad-data-mensagem').value = registro.data_mensagem || '';
+            document.getElementById('cad-formato').value = registro.formato_envio || 'Mensagem';
+            document.getElementById('cad-nome').value = registro.nome || '';
+            document.getElementById('cad-inicio').value = registro.inicio_autorizacao || '';
+            document.getElementById('cad-fim').value = registro.fim_autorizacao || '';
+            document.getElementById('cad-empresa').value = registro.empresa || '';
+            document.getElementById('cad-local').value = registro.local_autorizacao || '';
+            
+            document.getElementById('titulo-modal-manual').innerText = "Editar Registro";
+            modalManual.classList.remove('hidden');
+        }
+
+        // Função para remover registro
+        async function excluirRegistro(id, nome) {
+            if (!confirm(`Tem certeza que deseja excluir o cadastro de:\n${nome}?`)) return;
+            
+            try {
+                const res = await fetch(`/autorizacoes/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                alert(data.mensagem || data.erro);
+                await carregarDados();
+                atualizarTabelaAberta();
+            } catch (err) {
+                alert('Erro ao tentar excluir.');
+            }
+        }
+
+        // Importação de Planilha
         document.getElementById('planilha').addEventListener('change', async (e) => {
             const arquivo = e.target.files[0];
             if (!arquivo) return;
@@ -173,16 +219,19 @@
                 const res = await fetch('/importar', { method: 'POST', body: formData });
                 const data = await res.json();
                 alert(data.mensagem || data.erro);
-                carregarDados();
+                await carregarDados();
+                atualizarTabelaAberta();
             } catch (err) {
                 alert('Erro ao comunicar com o servidor.');
             }
             e.target.value = '';
         });
 
+        // Salvar (Novo ou Edição)
         document.getElementById('form-manual').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const novoRegistro = {
+            const id = document.getElementById('cad-id').value;
+            const registro = {
                 data_mensagem: document.getElementById('cad-data-mensagem').value,
                 formato_envio: document.getElementById('cad-formato').value,
                 nome: document.getElementById('cad-nome').value,
@@ -192,20 +241,35 @@
                 local_autorizacao: document.getElementById('cad-local').value
             };
 
+            const url = id ? `/autorizacoes/${id}` : '/autorizacoes';
+            const method = id ? 'PUT' : 'POST';
+
             try {
-                const res = await fetch('/autorizacoes', {
-                    method: 'POST',
+                const res = await fetch(url, {
+                    method: method,
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(novoRegistro)
+                    body: JSON.stringify(registro)
                 });
                 const data = await res.json();
                 alert(data.mensagem || data.erro);
                 fecharModalManual();
-                carregarDados();
+                await carregarDados();
+                atualizarTabelaAberta();
             } catch (err) {
                 alert('Erro ao salvar.');
             }
         });
+
+        // Atualiza a view caso a tabela esteja aberta por trás do modal de edição
+        function atualizarTabelaAberta() {
+            if (!modalTabela.classList.contains('hidden')) {
+                if (campoPesquisa.value.trim() !== '') {
+                    pesquisar();
+                } else {
+                    verTodos();
+                }
+            }
+        }
 
         // Autocompletar na pesquisa
         campoPesquisa.addEventListener('input', (e) => {
@@ -233,7 +297,7 @@
                 li.onmousedown = () => { 
                     campoPesquisa.value = nome;
                     listaSugestoes.classList.add('hidden');
-                    pesquisar();
+                    pesquisarBtn();
                 };
                 listaSugestoes.appendChild(li);
             });
@@ -247,17 +311,21 @@
         campoPesquisa.addEventListener('keypress', function (e) {
             if (e.key === 'Enter') {
                 listaSugestoes.classList.add('hidden');
-                pesquisar();
+                pesquisarBtn();
             }
         });
 
-        function pesquisar() {
+        function pesquisarBtn() {
             const inputVal = campoPesquisa.value.trim();
             if (!inputVal) {
                 alert("Digite algo para pesquisar.");
                 return;
             }
+            pesquisar();
+        }
 
+        function pesquisar() {
+            const inputVal = campoPesquisa.value.trim();
             const termo = removerAcentos(inputVal.toLowerCase());
             const filtrados = todosRegistros.filter(item => 
                 (item.nome && removerAcentos(item.nome.toLowerCase()).includes(termo)) ||
@@ -289,7 +357,7 @@
             tbody.innerHTML = ''; 
 
             if(dados.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-slate-400">Nenhum registro encontrado.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-slate-400">Nenhum registro encontrado.</td></tr>`;
                 return;
             }
 
@@ -313,6 +381,10 @@
                     <td class="p-4 text-left text-slate-300">${item.local_autorizacao || '-'}</td>
                     <td class="p-4 text-center">
                         <span class="px-2 py-1 bg-slate-700 border border-slate-600 text-xs rounded-full text-slate-300">${item.formato_envio || '-'}</span>
+                    </td>
+                    <td class="p-4 text-center flex justify-center gap-2 items-center">
+                        <button onclick="editarRegistro('${item.id}')" class="bg-blue-600/20 text-blue-400 hover:bg-blue-500 hover:text-white px-2 py-1 rounded transition-colors text-xs font-bold uppercase tracking-wider" title="Editar">Editar</button>
+                        <button onclick="excluirRegistro('${item.id}', '${item.nome}')" class="bg-red-600/20 text-red-400 hover:bg-red-500 hover:text-white px-2 py-1 rounded transition-colors text-xs font-bold uppercase tracking-wider" title="Remover">Excluir</button>
                     </td>
                 `;
                 tbody.appendChild(tr);

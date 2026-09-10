@@ -95,7 +95,7 @@ app.get('/autorizacoes', async (req, res) => {
     res.json(dadosExibicao);
 });
 
-// Cadastro Manual com Substituição Inteligente
+// Cadastro Manual
 app.post('/autorizacoes', async (req, res) => {
     const nova = req.body;
     nova.nome = formatarNome(nova.nome); 
@@ -105,6 +105,25 @@ app.post('/autorizacoes', async (req, res) => {
     const { error } = await supabase.from('autorizacoes').insert([nova]);
     if (error) return res.status(500).json({ erro: error.message });
     res.status(201).json({ mensagem: 'Registro salvo com sucesso!' });
+});
+
+// Atualizar Registro Específico
+app.put('/autorizacoes/:id', async (req, res) => {
+    const { id } = req.params;
+    const atualizado = req.body;
+    atualizado.nome = formatarNome(atualizado.nome);
+
+    const { error } = await supabase.from('autorizacoes').update(atualizado).eq('id', id);
+    if (error) return res.status(500).json({ erro: error.message });
+    res.json({ mensagem: 'Registro atualizado com sucesso!' });
+});
+
+// Deletar Registro Específico
+app.delete('/autorizacoes/:id', async (req, res) => {
+    const { id } = req.params;
+    const { error } = await supabase.from('autorizacoes').delete().eq('id', id);
+    if (error) return res.status(500).json({ erro: error.message });
+    res.json({ mensagem: 'Registro removido com sucesso!' });
 });
 
 // Importação com Substituição Inteligente
