@@ -17,7 +17,8 @@ const supabase = createClient(urlBase, supabaseKey);
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-function formatarDataExcel(val) {
+// Converte qualquer data (YYYY-MM-DD, Excel Serial, Date, etc) para DD/MM/AAAA
+function formatarDataParaExibicao(val) {
     if (!val) return '';
     if (val instanceof Date) {
         const d = String(val.getDate()).padStart(2, '0');
@@ -25,15 +26,22 @@ function formatarDataExcel(val) {
         const y = val.getFullYear();
         return `${d}/${m}/${y}`;
     }
-    if (typeof val === 'string' && val.includes('/')) {
-        const parts = val.split('/');
+    let strVal = String(val).trim();
+    // Se veio do input type="date" (YYYY-MM-DD)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(strVal)) {
+        const [y, m, d] = strVal.split('-');
+        return `${d}/${m}/${y}`;
+    }
+    // Se já está em DD/MM/YYYY
+    if (strVal.includes('/')) {
+        const parts = strVal.split('/');
         if (parts.length >= 3) {
             let ano = parts[2];
             if (ano.length === 2) ano = `20${ano}`;
-            return `${parts[1].padStart(2, '0')}/${parts[0].padStart(2, '0')}/${ano}`;
+            return `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${ano}`;
         }
     }
-    return val;
+    return strVal;
 }
 
 function formatarNome(nomeStr) {
@@ -50,7 +58,7 @@ function formatarNome(nomeStr) {
         .join(' ');
 }
 
-// Faxina Automática (Exclui registros vencidos há mais de 7 dias) e Retorna Ordenado
+// Faxina Automática e Retorna Ordenado
 app.get('/autorizacoes', async (req, res) => {
     const { data, error } = await supabase.from('autorizacoes').select('*');
     if (error) return res.status(500).json({ erro: error.message });
@@ -67,10 +75,17 @@ app.get('/autorizacoes', async (req, res) => {
             return;
         }
 
-        const partes = String(dataBase).replace(/-/g, '/').split('/');
+        let partes = [];
+        if (String(dataBase).includes('-')) {
+            const p = dataBase.split('-');
+            if (p.length === 3) partes = [p[2], p[1], p[0]]; // Converte yyyy-mm-dd para dd/mm/yyyy para checagem
+        } else {
+            partes = String(dataBase).replace(/-/g, '/').split('/');
+        }
+
         if (partes.length >= 3) {
             let [dia, mes, ano] = partes;
-            if (ano.length === 2) ano = `20${ano}`;
+            if (ano && ano.length === 2) ano = `20${ano}`;
             
             const dataLimite = new Date(`${ano}-${mes}-${dia}T23:59:59`);
             const dataExclusao = new Date(dataLimite);
@@ -99,6 +114,9 @@ app.get('/autorizacoes', async (req, res) => {
 app.post('/autorizacoes', async (req, res) => {
     const nova = req.body;
     nova.nome = formatarNome(nova.nome); 
+    nova.data_mensagem = formatarDataParaExibicao(nova.data_mensagem);
+    nova.inicio_autorizacao = formatarDataParaExibicao(nova.inicio_autorizacao);
+    nova.fim_autorizacao = formatarDataParaExibicao(nova.fim_autorizacao);
     
     await supabase.from('autorizacoes').delete().ilike('nome', nova.nome);
     
@@ -112,6 +130,9 @@ app.put('/autorizacoes/:id', async (req, res) => {
     const { id } = req.params;
     const atualizado = req.body;
     atualizado.nome = formatarNome(atualizado.nome);
+    atualizado.data_mensagem = formatarDataParaExibicao(atualizado.data_mensagem);
+    atualizado.inicio_autorizacao = formatarDataParaExibicao(atualizado.inicio_autorizacao);
+    atualizado.fim_autorizacao = formatarDataParaExibicao(atualizado.fim_autorizacao);
 
     const { error } = await supabase.from('autorizacoes').update(atualizado).eq('id', id);
     if (error) return res.status(500).json({ erro: error.message });
@@ -152,10 +173,10 @@ app.post('/importar', upload.single('planilha'), async (req, res) => {
                 let valorDataRaw = linhaNormalizada['DATA DA MENSAGEM'] || linhaNormalizada['DATA MENSAGEM'] || linhaNormalizada['DATA'];
                 
                 mapaNomes.set(nomeFormatado, {
-                    data_mensagem: formatarDataExcel(valorDataRaw),
+                    data_mensagem: formatarDataParaExibicao(valorDataRaw),
                     nome: nomeFormatado,
-                    inicio_autorizacao: formatarDataExcel(linhaNormalizada['INÍCIO'] || linhaNormalizada['INICIO']),
-                    fim_autorizacao: formatarDataExcel(linhaNormalizada['FIM']),
+                    inicio_autorizacao: formatarDataParaExibicao(linhaNormalizada['INÍCIO'] || linhaNormalizada['INICIO']),
+                    fim_autorizacao: formatarDataParaExibicao(linhaNormalizada['FIM']),
                     empresa: linhaNormalizada['EMPRESA'],
                     local_autorizacao: linhaNormalizada['LOCAL'],
                     formato_envio: linhaNormalizada['FORMATO'] || linhaNormalizada['FORMATO ENVIO']
