@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta de Autorizados</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 p-8 text-slate-200 relative min-h-screen">
+    <div class="max-w-7xl mx-auto bg-slate-800 p-6 rounded-xl shadow-2xl border border-slate-700">
+        
+        <h1 class="text-3xl font-bold mb-6 text-blue-400 text-center md:text-left tracking-wide">
+            Sistema de Autorizações
+        </h1>
+
+        <!-- Barra de Controles -->
+        <div class="bg-slate-900/50 border border-slate-700 p-4 rounded-lg mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            
+            <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                <input type="file" id="planilha" accept=".xlsx" class="hidden">
+                <button onclick="document.getElementById('planilha').click()" class="bg-blue-600 text-white px-5 py-2.5 rounded hover:bg-blue-500 transition-colors font-medium text-sm flex items-center justify-center min-w-[160px] shadow-lg shadow-blue-900/50">
+                    Importar Planilha
+                </button>
+                <button onclick="abrirModal()" class="bg-emerald-600 text-white px-5 py-2.5 rounded hover:bg-emerald-500 transition-colors font-medium text-sm flex items-center justify-center min-w-[160px] shadow-lg shadow-emerald-900/50">
+                    + Cadastro Manual
+                </button>
+            </div>
+
+            <!-- Campo de Pesquisa -->
+            <div class="w-full md:w-96 relative">
+                <input type="text" id="campo-pesquisa" placeholder="Pesquisar nome ou empresa..." class="bg-slate-800 border border-slate-600 text-slate-200 placeholder-slate-400 p-2.5 rounded w-full text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors">
+            </div>
+            
+        </div>
+
+        <!-- Tabela -->
+        <div class="overflow-x-auto border border-slate-700 rounded-lg bg-slate-800 shadow-inner">
+            <table class="w-full text-center border-collapse">
+                <thead>
+                    <tr class="bg-slate-700 text-sm uppercase text-slate-300 font-semibold tracking-wider">
+                        <th class="p-4 border-b border-slate-600">Status</th>
+                        <th class="p-4 border-b border-slate-600 whitespace-nowrap">Data Mensagem</th>
+                        <th class="p-4 border-b border-slate-600 text-left">Nome</th>
+                        <th class="p-4 border-b border-slate-600 whitespace-nowrap">Início</th>
+                        <th class="p-4 border-b border-slate-600 whitespace-nowrap">Fim</th>
+                        <th class="p-4 border-b border-slate-600 text-left">Empresa</th>
+                        <th class="p-4 border-b border-slate-600 text-left">Local</th>
+                        <th class="p-4 border-b border-slate-600 whitespace-nowrap">Formato</th>
+                    </tr>
+                </thead>
+                <tbody id="tabela-corpo" class="text-sm divide-y divide-slate-700">
+                    <!-- Javascript renderiza os dados aqui -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal Pop-up (Tema Escuro) -->
+    <div id="modal-manual" class="fixed inset-0 bg-black/70 hidden flex justify-center items-center z-50 backdrop-blur-sm">
+        <div class="bg-slate-800 border border-slate-600 p-6 rounded-xl shadow-2xl w-full max-w-md">
+            
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-slate-100">Novo Registro</h2>
+                <button onclick="fecharModal()" class="text-slate-400 hover:text-red-400 transition-colors font-bold text-2xl">&times;</button>
+            </div>
+            
+            <form id="form-manual" class="flex flex-col gap-4 text-left">
+                <div class="flex gap-4">
+                    <div class="w-1/2">
+                        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">DATA DA MENSAGEM</label>
+                        <input type="text" id="cad-data-mensagem" inputmode="numeric" placeholder="Ex: 13/08/2026" class="bg-slate-700 border border-slate-600 text-slate-200 p-2.5 rounded w-full focus:outline-none focus:border-blue-500" required>
+                    </div>
+                    <div class="w-1/2">
+                        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">FORMATO ENVIO</label>
+                        <select id="cad-formato" class="bg-slate-700 border border-slate-600 text-slate-200 p-2.5 rounded w-full focus:outline-none focus:border-blue-500">
+                            <option value="Mensagem">Mensagem</option>
+                            <option value="PDF">PDF</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">NOME</label>
+                    <input type="text" id="cad-nome" placeholder="Nome completo" class="bg-slate-700 border border-slate-600 text-slate-200 p-2.5 rounded w-full focus:outline-none focus:border-blue-500" required>
+                </div>
+                <div class="flex gap-4">
+                    <div class="w-1/2">
+                        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">INÍCIO</label>
+                        <input type="text" id="cad-inicio" inputmode="numeric" placeholder="Ex: 13/08/2026" class="bg-slate-700 border border-slate-600 text-slate-200 p-2.5 rounded w-full focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div class="w-1/2">
+                        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">FIM</label>
+                        <input type="text" id="cad-fim" inputmode="numeric" placeholder="Ex: 13/09/2026" class="bg-slate-700 border border-slate-600 text-slate-200 p-2.5 rounded w-full focus:outline-none focus:border-blue-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">EMPRESA</label>
+                    <input type="text" id="cad-empresa" placeholder="Nome da Empresa" class="bg-slate-700 border border-slate-600 text-slate-200 p-2.5 rounded w-full focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">LOCAL</label>
+                    <input type="text" id="cad-local" placeholder="Local de autorização" class="bg-slate-700 border border-slate-600 text-slate-200 p-2.5 rounded w-full focus:outline-none focus:border-blue-500">
+                </div>
+                
+                <div class="flex justify-end gap-3 mt-4">
+                    <button type="button" onclick="fecharModal()" class="px-5 py-2.5 bg-slate-700 border border-slate-600 text-slate-300 rounded hover:bg-slate-600 transition-colors font-medium">Cancelar</button>
+                    <button type="submit" class="px-5 py-2.5 bg-blue-600 text-white rounded hover:bg-blue-500 transition-colors font-medium shadow-lg shadow-blue-900/50">Salvar Registro</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let todosRegistros = [];
+        const modal = document.getElementById('modal-manual');
+        
+        function abrirModal() { modal.classList.remove('hidden'); }
+        function fecharModal() { modal.classList.add('hidden'); document.getElementById('form-manual').reset(); }
+
+        function isValido(dataStr, fimStr) {
+            const dataBase = fimStr || dataStr;
+            if (!dataBase) return false;
+            const partes = String(dataBase).replace(/-/g, '/').split('/');
+            if (partes.length < 3) return false;
+            
+            let [dia, mes, ano] = partes;
+            if (ano.length === 2) ano = `20${ano}`;
+            
+            const dataLimite = new Date(`${ano}-${mes}-${dia}T23:59:59`);
+            return dataLimite >= new Date();
+        }
+
+        document.getElementById('planilha').addEventListener('change', async (e) => {
+            const arquivo = e.target.files[0];
+            if (!arquivo) return;
+            const formData = new FormData();
+            formData.append('planilha', arquivo);
+
+            try {
+                const res = await fetch('/importar', { method: 'POST', body: formData });
+                const data = await res.json();
+                alert(data.mensagem || data.erro);
+                carregarDados();
+            } catch (err) {
+                alert('Erro ao comunicar com o servidor.');
+            }
+            e.target.value = '';
+        });
+
+        document.getElementById('form-manual').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const novoRegistro = {
+                data_mensagem: document.getElementById('cad-data-mensagem').value,
+                formato_envio: document.getElementById('cad-formato').value,
+                nome: document.getElementById('cad-nome').value,
+                inicio_autorizacao: document.getElementById('cad-inicio').value,
+                fim_autorizacao: document.getElementById('cad-fim').value,
+                empresa: document.getElementById('cad-empresa').value,
+                local_autorizacao: document.getElementById('cad-local').value
+            };
+
+            try {
+                const res = await fetch('/autorizacoes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(novoRegistro)
+                });
+                const data = await res.json();
+                alert(data.mensagem || data.erro);
+                fecharModal();
+                carregarDados();
+            } catch (err) {
+                alert('Erro ao salvar.');
+            }
+        });
+
+        document.getElementById('campo-pesquisa').addEventListener('input', (e) => {
+            const termo = e.target.value.toLowerCase();
+            const filtrados = todosRegistros.filter(item => 
+                (item.nome && item.nome.toLowerCase().includes(termo)) ||
+                (item.empresa && item.empresa.toLowerCase().includes(termo))
+            );
+            renderizarTabela(filtrados);
+        });
+
+        async function carregarDados() {
+            try {
+                const res = await fetch('/autorizacoes');
+                todosRegistros = await res.json();
+                renderizarTabela(todosRegistros);
+            } catch (err) {
+                console.error('Erro:', err);
+            }
+        }
+
+        function renderizarTabela(dados) {
+            const tbody = document.getElementById('tabela-corpo');
+            tbody.innerHTML = ''; 
+
+            dados.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.classList.add('hover:bg-slate-700/50', 'transition-colors');
+                
+                const statusAtivo = isValido(item.data_mensagem, item.fim_autorizacao);
+                
+                const badgeStatus = statusAtivo 
+                    ? `<span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full text-xs font-bold tracking-wide">Válido</span>`
+                    : `<span class="bg-red-500/10 text-red-400 border border-red-500/20 px-3 py-1 rounded-full text-xs font-bold tracking-wide">Vencido</span>`;
+
+                tr.innerHTML = `
+                    <td class="p-4 align-middle">${badgeStatus}</td>
+                    <td class="p-4 text-slate-300">${item.data_mensagem || '-'}</td>
+                    <td class="p-4 font-medium text-left text-slate-100">${item.nome}</td>
+                    <td class="p-4 text-slate-300">${item.inicio_autorizacao || '-'}</td>
+                    <td class="p-4 text-slate-300">${item.fim_autorizacao || '-'}</td>
+                    <td class="p-4 text-left text-slate-300">${item.empresa || '-'}</td>
+                    <td class="p-4 text-left text-slate-300">${item.local_autorizacao || '-'}</td>
+                    <td class="p-4 text-center">
+                        <span class="px-2 py-1 bg-slate-700 border border-slate-600 text-xs rounded-full text-slate-300">${item.formato_envio || '-'}</span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        carregarDados();
+    </script>
+</body>
+</html>
