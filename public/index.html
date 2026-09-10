@@ -139,7 +139,12 @@
         
         function abrirModalManual() { modalManual.classList.remove('hidden'); }
         function fecharModalManual() { modalManual.classList.add('hidden'); document.getElementById('form-manual').reset(); }
-        function fecharModalTabela() { modalTabela.classList.add('hidden'); }
+        
+        // A função agora fecha a tabela e limpa a barra de pesquisa
+        function fecharModalTabela() { 
+            modalTabela.classList.add('hidden'); 
+            campoPesquisa.value = ''; 
+        }
 
         function removerAcentos(str) {
             return str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
