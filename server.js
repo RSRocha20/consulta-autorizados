@@ -10,7 +10,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// SENHA DO ADMINISTRADOR (Você pode alterar para a senha que desejar)
+// SENHA DO ADMINISTRADOR
 const SENHA_ADMIN = 'bgkfrcamara26';
 
 app.post('/verificar-admin', (req, res) => {
@@ -51,6 +51,25 @@ function formatarDataParaExibicao(val) {
         }
     }
     return strVal;
+}
+
+// Converte string DD/MM/AAAA para objeto Date para fins de comparação
+function converterParaDate(dataStr) {
+    if (!dataStr) return null;
+    let partes = [];
+    if (String(dataStr).includes('-')) {
+        const p = dataStr.split('-');
+        if (p.length === 3) partes = [p[2], p[1], p[0]];
+    } else {
+        partes = String(dataStr).replace(/-/g, '/').split('/');
+    }
+    if (partes.length >= 3) {
+        let [dia, mes, ano] = partes;
+        if (ano && ano.length === 2) ano = `20${ano}`;
+        const d = new Date(`${ano}-${mes}-${dia}T00:00:00`);
+        return isNaN(d.getTime()) ? null : d;
+    }
+    return null;
 }
 
 function formatarNome(nomeStr) {
@@ -119,7 +138,7 @@ app.get('/autorizacoes', async (req, res) => {
     res.json(dadosExibicao);
 });
 
-// Cadastro Manual
+// Cadastro Manual com Regra de Data Fim Mais Longa
 app.post('/autorizacoes', async (req, res) => {
     const nova = req.body;
     nova.nome = formatarNome(nova.nome); 
@@ -127,8 +146,38 @@ app.post('/autorizacoes', async (req, res) => {
     nova.inicio_autorizacao = formatarDataParaExibicao(nova.inicio_autorizacao);
     nova.fim_autorizacao = formatarDataParaExibicao(nova.fim_autorizacao);
     
-    await supabase.from('autorizacoes').delete().ilike('nome', nova.nome);
-    
+    // Busca registros existentes para a mesma pessoa, empresa e local
+    let query = supabase.from('autorizacoes').select('*').ilike('nome', nova.nome);
+    if (nova.empresa) query = query.ilike('empresa', nova.empresa);
+    if (nova.local_autorizacao) query = query.ilike('local_autorizacao', nova.local_autorizacao);
+
+    const { data: existentes, error: errBusca } = await query;
+    if (errBusca) return res.status(500).json({ erro: errBusca.message });
+
+    const novaDataFim = converterParaDate(nova.fim_autorizacao);
+
+    if (existentes && existentes.length > 0) {
+        let deveInserir = true;
+
+        for (const regExistente of existentes) {
+            const dataFimExistente = converterParaDate(regExistente.fim_autorizacao);
+
+            // Se o registro existente tem data fim e a nova data fim é menor ou igual, impede a inserção
+            if (dataFimExistente && novaDataFim && novaDataFim <= dataFimExistente) {
+                deveInserir = false;
+                break;
+            }
+        }
+
+        if (!deveInserir) {
+            return res.status(400).json({ erro: 'Registro não inserido: já existe um cadastro ativo com data fim igual ou mais longa para este nome, empresa e local.' });
+        }
+
+        // Se a nova data fim for maior, remove os antigos mais curtos e insere o novo
+        const idsAntigos = existentes.map(r => r.id);
+        await supabase.from('autorizacoes').delete().in('id', idsAntigos);
+    }
+
     const { error } = await supabase.from('autorizacoes').insert([nova]);
     if (error) return res.status(500).json({ erro: error.message });
     res.status(201).json({ mensagem: 'Registro salvo com sucesso!' });
@@ -156,7 +205,7 @@ app.delete('/autorizacoes/:id', async (req, res) => {
     res.json({ mensagem: 'Registro removido com sucesso!' });
 });
 
-// Importação com Substituição Inteligente
+// Importação com Regra de Data Fim Mais Longa
 app.post('/importar', upload.single('planilha'), async (req, res) => {
     if (!req.file) return res.status(400).json({ erro: 'Arquivo não localizado.' });
 
@@ -167,9 +216,14 @@ app.post('/importar', upload.single('planilha'), async (req, res) => {
 
         if (dadosPlanilha.length === 0) return res.status(400).json({ erro: 'Planilha vazia.' });
 
-        const mapaNomes = new Map();
-        
-        dadosPlanilha.forEach(linha => {
+        // Busca todos os registros atuais do banco para checagem rápida
+        const { data: todosAtuais, error: errBanco } = await supabase.from('autorizacoes').select('*');
+        if (errBanco) return res.status(500).json({ erro: errBanco.message });
+
+        let importados = 0;
+        let ignoradosPorData = 0;
+
+        for (const linha of dadosPlanilha) {
             const linhaNormalizada = {};
             for (let chave in linha) {
                 let chaveLimpa = chave.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
@@ -177,32 +231,71 @@ app.post('/importar', upload.single('planilha'), async (req, res) => {
             }
 
             const nomeBruto = linhaNormalizada['NOME'];
-            if (nomeBruto) {
-                const nomeFormatado = formatarNome(nomeBruto); 
-                let valorDataRaw = linhaNormalizada['DATA DA MENSAGEM'] || linhaNormalizada['DATA MENSAGEM'] || linhaNormalizada['DATA'];
-                
-                mapaNomes.set(nomeFormatado, {
-                    data_mensagem: formatarDataParaExibicao(valorDataRaw),
-                    nome: nomeFormatado,
-                    inicio_autorizacao: formatarDataParaExibicao(linhaNormalizada['INÍCIO'] || linhaNormalizada['INICIO']),
-                    fim_autorizacao: formatarDataParaExibicao(linhaNormalizada['FIM']),
-                    empresa: linhaNormalizada['EMPRESA'],
-                    local_autorizacao: linhaNormalizada['LOCAL'],
-                    formato_envio: linhaNormalizada['FORMATO'] || linhaNormalizada['FORMATO ENVIO']
+            if (!nomeBruto) continue;
+
+            const nomeFormatado = formatarNome(nomeBruto); 
+            let valorDataRaw = linhaNormalizada['DATA DA MENSAGEM'] || linhaNormalizada['DATA MENSAGEM'] || linhaNormalizada['DATA'];
+            
+            const novoReg = {
+                data_mensagem: formatarDataParaExibicao(valorDataRaw),
+                nome: nomeFormatado,
+                inicio_autorizacao: formatarDataParaExibicao(linhaNormalizada['INÍCIO'] || linhaNormalizada['INICIO']),
+                fim_autorizacao: formatarDataParaExibicao(linhaNormalizada['FIM']),
+                empresa: linhaNormalizada['EMPRESA'] ? String(linhaNormalizada['EMPRESA']).trim() : '',
+                local_autorizacao: linhaNormalizada['LOCAL'] ? String(linhaNormalizada['LOCAL']).trim() : '',
+                formato_envio: linhaNormalizada['FORMATO'] || linhaNormalizada['FORMATO ENVIO'] || 'Mensagem'
+            };
+
+            const novaDataFim = converterParaDate(novoReg.fim_autorizacao);
+
+            // Verifica se já existe no banco com a mesma chave (Nome + Empresa + Local)
+            const conflitos = todosAtuais.filter(r => 
+                r.nome.toLowerCase() === novoReg.nome.toLowerCase() &&
+                (r.empresa || '').toLowerCase() === (novoReg.empresa || '').toLowerCase() &&
+                (r.local_autorizacao || '').toLowerCase() === (novoReg.local_autorizacao || '').toLowerCase()
+            );
+
+            let pularInsercao = false;
+            const idsParaRemover = [];
+
+            if (conflitos.length > 0) {
+                for (const regExistente of conflitos) {
+                    const dataFimExistente = converterParaDate(regExistente.fim_autorizacao);
+
+                    if (dataFimExistente && novaDataFim && novaDataFim <= dataFimExistente) {
+                        pularInsercao = true;
+                        break;
+                    } else {
+                        idsParaRemover.push(regExistente.id);
+                    }
+                }
+            }
+
+            if (pularInsercao) {
+                ignoradosPorData++;
+                continue;
+            }
+
+            // Se vai substituir, remove os registros mais antigos com data menor
+            if (idsParaRemover.length > 0) {
+                await supabase.from('autorizacoes').delete().in('id', idsParaRemover);
+                // Atualiza a lista local de 'todosAtuais' para evitar duplicatas em lote na mesma importação
+                idsParaRemover.forEach(idRemovido => {
+                    const idx = todosAtuais.findIndex(x => x.id === idRemovido);
+                    if (idx !== -1) todosAtuais.splice(idx, 1);
                 });
             }
-        });
 
-        const listaParaProcessar = Array.from(mapaNomes.values());
-        let importados = 0;
-
-        for (const reg of listaParaProcessar) {
-            await supabase.from('autorizacoes').delete().ilike('nome', reg.nome);
-            await supabase.from('autorizacoes').insert([reg]);
-            importados++;
+            const { data: inserido, error: errIns } = await supabase.from('autorizacoes').insert([novoReg]).select();
+            if (!errIns && inserido) {
+                todosAtuais.push(inserido[0]);
+                importados++;
+            }
         }
 
-        res.status(201).json({ mensagem: `Processamento concluído!\n• ${importados} registros atualizados.` });
+        res.status(201).json({ 
+            mensagem: `Processamento concluído!\n• ${importados} registros novos/atualizados.\n• ${ignoradosPorData} ignorados (já possuíam data fim mais longa).` 
+        });
     } catch (err) {
         console.error("Erro importação:", err);
         res.status(500).json({ erro: 'Falha durante o processamento.', detalhe: err.message });
