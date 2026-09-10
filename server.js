@@ -10,6 +10,18 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
+// SENHA DO ADMINISTRADOR (Você pode alterar para a senha que desejar)
+const SENHA_ADMIN = 'minhaSenhaSecreta123';
+
+app.post('/verificar-admin', (req, res) => {
+    const { senha } = req.body;
+    if (senha === SENHA_ADMIN) {
+        res.json({ sucesso: true });
+    } else {
+        res.json({ sucesso: false });
+    }
+});
+
 let urlBase = process.env.SUPABASE_URL || '';
 urlBase = urlBase.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
 const supabaseKey = process.env.SUPABASE_KEY;
@@ -17,7 +29,6 @@ const supabase = createClient(urlBase, supabaseKey);
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Converte qualquer data (YYYY-MM-DD, Excel Serial, Date, etc) para DD/MM/AAAA
 function formatarDataParaExibicao(val) {
     if (!val) return '';
     if (val instanceof Date) {
@@ -27,12 +38,10 @@ function formatarDataParaExibicao(val) {
         return `${d}/${m}/${y}`;
     }
     let strVal = String(val).trim();
-    // Se veio do input type="date" (YYYY-MM-DD)
     if (/^\d{4}-\d{2}-\d{2}$/.test(strVal)) {
         const [y, m, d] = strVal.split('-');
         return `${d}/${m}/${y}`;
     }
-    // Se já está em DD/MM/YYYY
     if (strVal.includes('/')) {
         const parts = strVal.split('/');
         if (parts.length >= 3) {
@@ -78,7 +87,7 @@ app.get('/autorizacoes', async (req, res) => {
         let partes = [];
         if (String(dataBase).includes('-')) {
             const p = dataBase.split('-');
-            if (p.length === 3) partes = [p[2], p[1], p[0]]; // Converte yyyy-mm-dd para dd/mm/yyyy para checagem
+            if (p.length === 3) partes = [p[2], p[1], p[0]];
         } else {
             partes = String(dataBase).replace(/-/g, '/').split('/');
         }
